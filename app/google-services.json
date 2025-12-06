@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1056154653184",
+    "project_id": "compose-firebase-codelab-b299c",
+    "storage_bucket": "compose-firebase-codelab-b299c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1056154653184:android:d16eaa34bdd2f81d663ee5",
+        "android_client_info": {
+          "package_name": "com.example.smartShop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPK0_yDR1OGhgiityfB5KjJv5Hbcjrwwk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
