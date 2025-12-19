@@ -18,12 +18,12 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
     private var cloudJob: Job? = null
 
     fun loadProducts() {
-        // afficher Room d'abord
+        // Show Room first
         viewModelScope.launch {
             _products.value = repository.getAllLocalProducts()
         }
 
-        // écouter Firestore et mettre à jour Room
+        // Listen to Firestore once, and sync Cloud -> Room
         if (cloudJob == null) {
             cloudJob = viewModelScope.launch {
                 repository.observeCloud().collectLatest { cloudProducts ->
@@ -33,7 +33,6 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
             }
         }
     }
-
 
     fun addProduct(product: Product) {
         viewModelScope.launch {
@@ -59,5 +58,11 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
             repository.deleteCloud(product.id)
             _products.value = repository.getAllLocalProducts()
         }
+    }
+
+    fun clearOnLogout() {
+        cloudJob?.cancel()
+        cloudJob = null
+        _products.value = emptyList()
     }
 }

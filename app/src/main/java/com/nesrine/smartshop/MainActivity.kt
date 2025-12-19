@@ -33,7 +33,14 @@ class MainActivity : ComponentActivity() {
                 val productViewModel = remember { ProductViewModel(repository) }
 
                 if (loggedIn) {
-                    ProductsScreen(viewModel = productViewModel)
+                    ProductsScreen(
+                        viewModel = productViewModel,
+                        onLogout = {
+                            productViewModel.clearOnLogout()
+                            FirebaseAuth.getInstance().signOut()
+                            loggedIn = false
+                        }
+                    )
                 } else {
                     LoginScreen(onLoginSuccess = { loggedIn = true })
                 }
