@@ -20,7 +20,9 @@ fun ProductsScreen(
     onLogout: () -> Unit
 ) {
     val products by viewModel.products.collectAsState()
+
     var showDialog by remember { mutableStateOf(false) }
+    var editingProduct by remember { mutableStateOf<Product?>(null) } // null = add, else edit
 
     var name by rememberSaveable { mutableStateOf("") }
     var quantity by rememberSaveable { mutableStateOf("") }
@@ -28,14 +30,33 @@ fun ProductsScreen(
 
     LaunchedEffect(Unit) { viewModel.loadProducts() }
 
+    fun openAddDialog() {
+        editingProduct = null
+        name = ""
+        quantity = ""
+        price = ""
+        showDialog = true
+    }
+
+    fun openEditDialog(product: Product) {
+        editingProduct = product
+        name = product.name
+        quantity = product.quantity.toString()
+        price = product.price.toString()
+        showDialog = true
+    }
+
+    fun closeDialog() {
+        showDialog = false
+        editingProduct = null
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("SmartShop") },
                 actions = {
-                    TextButton(onClick = onLogout) {
-                        Text("Logout")
-                    }
+                    TextButton(onClick = onLogout) { Text("Logout") }
                 }
             )
         }
@@ -52,19 +73,28 @@ fun ProductsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("${product.id} - ${product.name} - ${product.quantity} - ${product.price}")
-                        Button(onClick = { viewModel.deleteProduct(product) }) {
-                            Text("Supprimer")
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("${product.id} - ${product.name}")
+                            Text("Qty: ${product.quantity}   Price: ${product.price}")
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { openEditDialog(product) }) {
+                                Text("Modifier")
+                            }
+                            Button(onClick = { viewModel.deleteProduct(product) }) {
+                                Text("Supprimer")
+                            }
                         }
                     }
                 }
             }
 
             Button(
-                onClick = { showDialog = true },
+                onClick = { openAddDialog() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp)
@@ -74,8 +104,7 @@ fun ProductsScreen(
         }
 
         if (showDialog) {
-
-            // --- Validation ---
+            // --- Validation (same for Add and Edit) ---
             val qInt = quantity.toIntOrNull()
             val pDouble = price.toDoubleOrNull()
 
@@ -97,11 +126,15 @@ fun ProductsScreen(
 
             val formValid = nameError == null && quantityError == null && priceError == null
 
-            Dialog(onDismissRequest = { showDialog = false }) {
+            val isEditMode = editingProduct != null
+            val dialogTitle = if (isEditMode) "Modifier un produit" else "Ajouter un produit"
+            val confirmLabel = if (isEditMode) "Enregistrer" else "Ajouter"
+
+            Dialog(onDismissRequest = { closeDialog() }) {
                 Surface(shape = MaterialTheme.shapes.medium, tonalElevation = 8.dp) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Ajouter un produit", style = MaterialTheme.typography.titleMedium)
 
+                        Text(dialogTitle, style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(10.dp))
 
                         // Name
@@ -167,27 +200,37 @@ fun ProductsScreen(
                             horizontalArrangement = Arrangement.End,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            TextButton(onClick = { showDialog = false }) { Text("Annuler") }
+                            TextButton(onClick = { closeDialog() }) { Text("Annuler") }
                             Spacer(Modifier.width(8.dp))
 
                             Button(
                                 enabled = formValid,
                                 onClick = {
-                                    // safe because formValid == true
-                                    viewModel.addProduct(
-                                        Product(
-                                            name = name.trim(),
-                                            quantity = qInt!!,
-                                            price = pDouble!!
+                                    val finalName = name.trim()
+                                    val finalQ = qInt!!
+                                    val finalP = pDouble!!
+
+                                    if (isEditMode) {
+                                        val updated = editingProduct!!.copy(
+                                            name = finalName,
+                                            quantity = finalQ,
+                                            price = finalP
                                         )
-                                    )
-                                    name = ""
-                                    quantity = ""
-                                    price = ""
-                                    showDialog = false
+                                        viewModel.updateProduct(updated)
+                                    } else {
+                                        viewModel.addProduct(
+                                            Product(
+                                                name = finalName,
+                                                quantity = finalQ,
+                                                price = finalP
+                                            )
+                                        )
+                                    }
+
+                                    closeDialog()
                                 }
                             ) {
-                                Text("Ajouter")
+                                Text(confirmLabel)
                             }
                         }
                     }
