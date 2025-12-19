@@ -1,4 +1,4 @@
-package com.nesrine.smartshop.home
+package com.nesrine.smartshop.ui.home
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize

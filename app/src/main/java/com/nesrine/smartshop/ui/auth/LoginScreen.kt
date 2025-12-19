@@ -1,7 +1,5 @@
-package com.nesrine.smartshop
-
+package com.nesrine.smartshop.ui.auth
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
