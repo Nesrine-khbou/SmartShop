@@ -14,7 +14,6 @@ import androidx.compose.ui.window.Dialog
 import com.nesrine.smartshop.data.local.Product
 
 @OptIn(ExperimentalMaterial3Api::class)
-
 @Composable
 fun ProductsScreen(
     viewModel: ProductViewModel,
@@ -75,31 +74,95 @@ fun ProductsScreen(
         }
 
         if (showDialog) {
+
+            // --- Validation ---
+            val qInt = quantity.toIntOrNull()
+            val pDouble = price.toDoubleOrNull()
+
+            val nameError = if (name.isBlank()) "Le nom est obligatoire" else null
+
+            val quantityError = when {
+                quantity.isBlank() -> "La quantité est obligatoire"
+                qInt == null -> "La quantité doit être un nombre"
+                qInt < 0 -> "La quantité doit être ≥ 0"
+                else -> null
+            }
+
+            val priceError = when {
+                price.isBlank() -> "Le prix est obligatoire"
+                pDouble == null -> "Le prix doit être un nombre"
+                pDouble <= 0.0 -> "Le prix doit être > 0"
+                else -> null
+            }
+
+            val formValid = nameError == null && quantityError == null && priceError == null
+
             Dialog(onDismissRequest = { showDialog = false }) {
                 Surface(shape = MaterialTheme.shapes.medium, tonalElevation = 8.dp) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Ajouter un produit", style = MaterialTheme.typography.titleMedium)
 
-                        Spacer(Modifier.height(8.dp))
-                        TextField(value = name, onValueChange = { name = it }, label = { Text("Nom") })
+                        Spacer(Modifier.height(10.dp))
 
-                        Spacer(Modifier.height(8.dp))
-                        TextField(
+                        // Name
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text("Nom") },
+                            isError = nameError != null,
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (nameError != null) {
+                            Text(
+                                text = nameError,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // Quantity
+                        OutlinedTextField(
                             value = quantity,
                             onValueChange = { quantity = it },
                             label = { Text("Quantité") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            isError = quantityError != null,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
                         )
+                        if (quantityError != null) {
+                            Text(
+                                text = quantityError,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
 
-                        Spacer(Modifier.height(8.dp))
-                        TextField(
+                        Spacer(Modifier.height(10.dp))
+
+                        // Price
+                        OutlinedTextField(
                             value = price,
                             onValueChange = { price = it },
                             label = { Text("Prix") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            isError = priceError != null,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth()
                         )
+                        if (priceError != null) {
+                            Text(
+                                text = priceError,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
 
                         Spacer(Modifier.height(16.dp))
+
                         Row(
                             horizontalArrangement = Arrangement.End,
                             modifier = Modifier.fillMaxWidth()
@@ -107,18 +170,23 @@ fun ProductsScreen(
                             TextButton(onClick = { showDialog = false }) { Text("Annuler") }
                             Spacer(Modifier.width(8.dp))
 
-                            Button(onClick = {
-                                val q = quantity.toIntOrNull()
-                                val p = price.toDoubleOrNull()
-
-                                if (name.isNotBlank() && q != null && p != null && p > 0 && q >= 0) {
-                                    viewModel.addProduct(Product(name = name, quantity = q, price = p))
+                            Button(
+                                enabled = formValid,
+                                onClick = {
+                                    // safe because formValid == true
+                                    viewModel.addProduct(
+                                        Product(
+                                            name = name.trim(),
+                                            quantity = qInt!!,
+                                            price = pDouble!!
+                                        )
+                                    )
                                     name = ""
                                     quantity = ""
                                     price = ""
                                     showDialog = false
                                 }
-                            }) {
+                            ) {
                                 Text("Ajouter")
                             }
                         }
