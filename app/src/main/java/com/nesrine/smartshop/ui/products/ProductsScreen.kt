@@ -24,6 +24,10 @@ fun ProductsScreen(
     var showDialog by remember { mutableStateOf(false) }
     var editingProduct by remember { mutableStateOf<Product?>(null) } // null = add, else edit
 
+    // Delete confirmation states
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var productToDelete by remember { mutableStateOf<Product?>(null) }
+
     var name by rememberSaveable { mutableStateOf("") }
     var quantity by rememberSaveable { mutableStateOf("") }
     var price by rememberSaveable { mutableStateOf("") }
@@ -51,13 +55,21 @@ fun ProductsScreen(
         editingProduct = null
     }
 
+    fun requestDelete(product: Product) {
+        productToDelete = product
+        showDeleteDialog = true
+    }
+
+    fun closeDeleteDialog() {
+        showDeleteDialog = false
+        productToDelete = null
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("SmartShop") },
-                actions = {
-                    TextButton(onClick = onLogout) { Text("Logout") }
-                }
+                actions = { TextButton(onClick = onLogout) { Text("Logout") } }
             )
         }
     ) { padding ->
@@ -85,7 +97,7 @@ fun ProductsScreen(
                             OutlinedButton(onClick = { openEditDialog(product) }) {
                                 Text("Modifier")
                             }
-                            Button(onClick = { viewModel.deleteProduct(product) }) {
+                            Button(onClick = { requestDelete(product) }) {
                                 Text("Supprimer")
                             }
                         }
@@ -103,8 +115,8 @@ fun ProductsScreen(
             }
         }
 
+        // ------------------ ADD / EDIT dialog (with validation) ------------------
         if (showDialog) {
-            // --- Validation (same for Add and Edit) ---
             val qInt = quantity.toIntOrNull()
             val pDouble = price.toDoubleOrNull()
 
@@ -137,7 +149,6 @@ fun ProductsScreen(
                         Text(dialogTitle, style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(10.dp))
 
-                        // Name
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
@@ -156,7 +167,6 @@ fun ProductsScreen(
 
                         Spacer(Modifier.height(10.dp))
 
-                        // Quantity
                         OutlinedTextField(
                             value = quantity,
                             onValueChange = { quantity = it },
@@ -176,7 +186,6 @@ fun ProductsScreen(
 
                         Spacer(Modifier.height(10.dp))
 
-                        // Price
                         OutlinedTextField(
                             value = price,
                             onValueChange = { price = it },
@@ -236,6 +245,30 @@ fun ProductsScreen(
                     }
                 }
             }
+        }
+
+        // ------------------ DELETE confirmation dialog ------------------
+        if (showDeleteDialog && productToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { closeDeleteDialog() },
+                title = { Text("Confirmation") },
+                text = { Text("Voulez-vous vraiment supprimer ce produit ?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.deleteProduct(productToDelete!!)
+                            closeDeleteDialog()
+                        }
+                    ) {
+                        Text("Supprimer")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { closeDeleteDialog() }) {
+                        Text("Annuler")
+                    }
+                }
+            )
         }
     }
 }
