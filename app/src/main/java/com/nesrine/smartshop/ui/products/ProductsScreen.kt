@@ -4,14 +4,20 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.nesrine.smartshop.data.local.Product
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,254 +27,283 @@ fun ProductsScreen(
 ) {
     val products by viewModel.products.collectAsState()
 
-    var showDialog by remember { mutableStateOf(false) }
-    var editingProduct by remember { mutableStateOf<Product?>(null) } // null = add, else edit
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Delete confirmation states
+    // Add/Edit dialog state
+    var showForm by remember { mutableStateOf(false) }
+    var editingProduct by remember { mutableStateOf<Product?>(null) } // null = add
+
+    // Delete confirmation state
     var showDeleteDialog by remember { mutableStateOf(false) }
     var productToDelete by remember { mutableStateOf<Product?>(null) }
 
+    // Form fields
     var name by rememberSaveable { mutableStateOf("") }
     var quantity by rememberSaveable { mutableStateOf("") }
     var price by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) { viewModel.loadProducts() }
 
-    fun openAddDialog() {
+    fun openAdd() {
         editingProduct = null
         name = ""
         quantity = ""
         price = ""
-        showDialog = true
+        showForm = true
     }
 
-    fun openEditDialog(product: Product) {
-        editingProduct = product
-        name = product.name
-        quantity = product.quantity.toString()
-        price = product.price.toString()
-        showDialog = true
+    fun openEdit(p: Product) {
+        editingProduct = p
+        name = p.name
+        quantity = p.quantity.toString()
+        price = p.price.toString()
+        showForm = true
     }
 
-    fun closeDialog() {
-        showDialog = false
+    fun closeForm() {
+        showForm = false
         editingProduct = null
     }
 
-    fun requestDelete(product: Product) {
-        productToDelete = product
+    fun requestDelete(p: Product) {
+        productToDelete = p
         showDeleteDialog = true
     }
 
-    fun closeDeleteDialog() {
+    fun closeDelete() {
         showDeleteDialog = false
         productToDelete = null
     }
 
+    // Nice summary (optional but premium)
+    val totalValue by remember(products) {
+        mutableStateOf(products.sumOf { it.quantity * it.price })
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("SmartShop") },
-                actions = { TextButton(onClick = onLogout) { Text("Logout") } }
+            CenterAlignedTopAppBar(
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("SmartShop", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            "${products.size} produits • Valeur stock: ${"%.2f".format(totalValue)} DT",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Outlined.Logout, contentDescription = "Logout")
+                    }
+                }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { openAdd() }) {
+                Icon(Icons.Outlined.Add, contentDescription = "Add product")
+            }
         }
     ) { padding ->
 
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(products, key = { it.id }) { product ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("${product.id} - ${product.name}")
-                            Text("Qty: ${product.quantity}   Price: ${product.price}")
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { openEditDialog(product) }) {
-                                Text("Modifier")
-                            }
-                            Button(onClick = { requestDelete(product) }) {
-                                Text("Supprimer")
-                            }
-                        }
-                    }
-                }
-            }
-
-            Button(
-                onClick = { openAddDialog() },
+        if (products.isEmpty()) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)
+                    .padding(padding)
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Ajouter un produit")
-            }
-        }
-
-        // ------------------ ADD / EDIT dialog (with validation) ------------------
-        if (showDialog) {
-            val qInt = quantity.toIntOrNull()
-            val pDouble = price.toDoubleOrNull()
-
-            val nameError = if (name.isBlank()) "Le nom est obligatoire" else null
-
-            val quantityError = when {
-                quantity.isBlank() -> "La quantité est obligatoire"
-                qInt == null -> "La quantité doit être un nombre"
-                qInt < 0 -> "La quantité doit être ≥ 0"
-                else -> null
-            }
-
-            val priceError = when {
-                price.isBlank() -> "Le prix est obligatoire"
-                pDouble == null -> "Le prix doit être un nombre"
-                pDouble <= 0.0 -> "Le prix doit être > 0"
-                else -> null
-            }
-
-            val formValid = nameError == null && quantityError == null && priceError == null
-
-            val isEditMode = editingProduct != null
-            val dialogTitle = if (isEditMode) "Modifier un produit" else "Ajouter un produit"
-            val confirmLabel = if (isEditMode) "Enregistrer" else "Ajouter"
-
-            Dialog(onDismissRequest = { closeDialog() }) {
-                Surface(shape = MaterialTheme.shapes.medium, tonalElevation = 8.dp) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-
-                        Text(dialogTitle, style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(10.dp))
-
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { name = it },
-                            label = { Text("Nom") },
-                            isError = nameError != null,
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        if (nameError != null) {
-                            Text(
-                                text = nameError,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Spacer(Modifier.height(10.dp))
-
-                        OutlinedTextField(
-                            value = quantity,
-                            onValueChange = { quantity = it },
-                            label = { Text("Quantité") },
-                            isError = quantityError != null,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        if (quantityError != null) {
-                            Text(
-                                text = quantityError,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Spacer(Modifier.height(10.dp))
-
-                        OutlinedTextField(
-                            value = price,
-                            onValueChange = { price = it },
-                            label = { Text("Prix") },
-                            isError = priceError != null,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        if (priceError != null) {
-                            Text(
-                                text = priceError,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        Row(
-                            horizontalArrangement = Arrangement.End,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            TextButton(onClick = { closeDialog() }) { Text("Annuler") }
-                            Spacer(Modifier.width(8.dp))
-
-                            Button(
-                                enabled = formValid,
-                                onClick = {
-                                    val finalName = name.trim()
-                                    val finalQ = qInt!!
-                                    val finalP = pDouble!!
-
-                                    if (isEditMode) {
-                                        val updated = editingProduct!!.copy(
-                                            name = finalName,
-                                            quantity = finalQ,
-                                            price = finalP
-                                        )
-                                        viewModel.updateProduct(updated)
-                                    } else {
-                                        viewModel.addProduct(
-                                            Product(
-                                                name = finalName,
-                                                quantity = finalQ,
-                                                price = finalP
-                                            )
-                                        )
-                                    }
-
-                                    closeDialog()
-                                }
-                            ) {
-                                Text(confirmLabel)
-                            }
-                        }
-                    }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Aucun produit", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Ajoute ton premier produit avec le bouton +",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-        }
-
-        // ------------------ DELETE confirmation dialog ------------------
-        if (showDeleteDialog && productToDelete != null) {
-            AlertDialog(
-                onDismissRequest = { closeDeleteDialog() },
-                title = { Text("Confirmation") },
-                text = { Text("Voulez-vous vraiment supprimer ce produit ?") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            viewModel.deleteProduct(productToDelete!!)
-                            closeDeleteDialog()
-                        }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 96.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(products, key = { it.id }) { product ->
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { openEdit(product) }
                     ) {
-                        Text("Supprimer")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { closeDeleteDialog() }) {
-                        Text("Annuler")
+                        ListItem(
+                            headlineContent = {
+                                Text(product.name, style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    AssistChip(
+                                        onClick = { },
+                                        label = { Text("Qty ${product.quantity}") }
+                                    )
+                                    AssistChip(
+                                        onClick = { },
+                                        label = { Text("${product.price} DT") }
+                                    )
+                                }
+                            },
+                            trailingContent = {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilledTonalIconButton(onClick = { openEdit(product) }) {
+                                        Icon(Icons.Outlined.Edit, contentDescription = "Edit")
+                                    }
+                                    IconButton(onClick = { requestDelete(product) }) {
+                                        Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete")
+                                    }
+                                }
+                            }
+                        )
                     }
                 }
-            )
+            }
         }
+    }
+
+    // ---------------- Add/Edit Form (same validation) ----------------
+    if (showForm) {
+        val qInt = quantity.toIntOrNull()
+        val pDouble = price.toDoubleOrNull()
+
+        val nameError = if (name.isBlank()) "Le nom est obligatoire" else null
+        val quantityError = when {
+            quantity.isBlank() -> "La quantité est obligatoire"
+            qInt == null -> "La quantité doit être un nombre"
+            qInt < 0 -> "La quantité doit être ≥ 0"
+            else -> null
+        }
+        val priceError = when {
+            price.isBlank() -> "Le prix est obligatoire"
+            pDouble == null -> "Le prix doit être un nombre"
+            pDouble <= 0.0 -> "Le prix doit être > 0"
+            else -> null
+        }
+
+        val formValid = nameError == null && quantityError == null && priceError == null
+        val isEdit = editingProduct != null
+
+        AlertDialog(
+            onDismissRequest = { closeForm() },
+            title = { Text(if (isEdit) "Modifier le produit" else "Ajouter un produit") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Nom") },
+                        isError = nameError != null,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (nameError != null) {
+                        Text(
+                            nameError,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = quantity,
+                        onValueChange = { quantity = it },
+                        label = { Text("Quantité") },
+                        isError = quantityError != null,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (quantityError != null) {
+                        Text(
+                            quantityError,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = { price = it },
+                        label = { Text("Prix") },
+                        isError = priceError != null,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (priceError != null) {
+                        Text(
+                            priceError,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { closeForm() }) { Text("Annuler") }
+            },
+            confirmButton = {
+                Button(
+                    enabled = formValid,
+                    onClick = {
+                        val finalName = name.trim()
+                        val finalQ = qInt!!
+                        val finalP = pDouble!!
+
+                        if (isEdit) {
+                            val updated = editingProduct!!.copy(
+                                name = finalName,
+                                quantity = finalQ,
+                                price = finalP
+                            )
+                            viewModel.updateProduct(updated)
+                            scope.launch { snackbarHostState.showSnackbar("Produit mis à jour ✅") }
+                        } else {
+                            viewModel.addProduct(Product(name = finalName, quantity = finalQ, price = finalP))
+                            scope.launch { snackbarHostState.showSnackbar("Produit ajouté ✅") }
+                        }
+
+                        closeForm()
+                    }
+                ) {
+                    Text(if (isEdit) "Enregistrer" else "Ajouter")
+                }
+            }
+        )
+    }
+
+    // ---------------- Delete Confirmation ----------------
+    if (showDeleteDialog && productToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { closeDelete() },
+            title = { Text("Supprimer") },
+            text = { Text("Voulez-vous vraiment supprimer ce produit ?") },
+            dismissButton = {
+                TextButton(onClick = { closeDelete() }) { Text("Annuler") }
+            },
+            confirmButton = {
+                Button(
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    onClick = {
+                        viewModel.deleteProduct(productToDelete!!)
+                        closeDelete()
+                        scope.launch { snackbarHostState.showSnackbar("Produit supprimé!") }
+                    }
+                ) {
+                    Text("Supprimer", color = MaterialTheme.colorScheme.onError)
+                }
+            }
+        )
     }
 }
