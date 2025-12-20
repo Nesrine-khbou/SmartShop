@@ -18,12 +18,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.nesrine.smartshop.data.local.Product
+import com.nesrine.smartshop.ui.stats.StockChartCard
 import kotlinx.coroutines.launch
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +95,7 @@ fun ProductsScreen(
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -134,12 +136,21 @@ fun ProductsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
-            // ---------- Premium header: stats + search ----------
+            // ---------- Premium header: stats ----------
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     ElevatedCard(modifier = Modifier.weight(1f)) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
                                 Icon(Icons.Outlined.ShoppingCart, contentDescription = null)
                                 Text("Produits", style = MaterialTheme.typography.labelLarge)
                             }
@@ -157,8 +168,14 @@ fun ProductsScreen(
                     }
 
                     ElevatedCard(modifier = Modifier.weight(1f)) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
                                 Icon(Icons.Outlined.Payments, contentDescription = null)
                                 Text("Valeur", style = MaterialTheme.typography.labelLarge)
                             }
@@ -177,6 +194,12 @@ fun ProductsScreen(
                 }
             }
 
+            // ✅ ---------- Chart ----------
+            item {
+                StockChartCard(products = products)
+            }
+
+            // ---------- Search ----------
             item {
                 OutlinedTextField(
                     value = query,
@@ -194,6 +217,7 @@ fun ProductsScreen(
                     }
                 )
             }
+
 
             // ---------- Empty state ----------
             if (filtered.isEmpty()) {
@@ -221,9 +245,12 @@ fun ProductsScreen(
                         onClick = { openEdit(product) }
                     ) {
                         ListItem(
-
                             headlineContent = {
-                                Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    product.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             },
                             supportingContent = {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -248,7 +275,7 @@ fun ProductsScreen(
         }
     }
 
-    // -------------------- Add/Edit as Premium Bottom Sheet (with same validation) --------------------
+    // -------------------- Add/Edit Bottom Sheet (validation) --------------------
     if (showSheet) {
         val qInt = quantity.toIntOrNull()
         val pDouble = price.toDoubleOrNull()
@@ -351,10 +378,10 @@ fun ProductsScreen(
                             if (isEdit) {
                                 val updated = editingProduct!!.copy(name = finalName, quantity = finalQ, price = finalP)
                                 viewModel.updateProduct(updated)
-                                scope.launch { snackbarHostState.showSnackbar("Produit mis à jour ✅") }
+                                scope.launch { snackbarHostState.showSnackbar("Produit mis à jour") }
                             } else {
                                 viewModel.addProduct(Product(name = finalName, quantity = finalQ, price = finalP))
-                                scope.launch { snackbarHostState.showSnackbar("Produit ajouté ✅") }
+                                scope.launch { snackbarHostState.showSnackbar("Produit ajouté") }
                             }
 
                             closeSheet()
@@ -382,7 +409,7 @@ fun ProductsScreen(
                     onClick = {
                         viewModel.deleteProduct(productToDelete!!)
                         closeDelete()
-                        scope.launch { snackbarHostState.showSnackbar("Produit supprimé ✅") }
+                        scope.launch { snackbarHostState.showSnackbar("Produit supprimé") }
                     }
                 ) {
                     Text("Supprimer", color = MaterialTheme.colorScheme.onError)
